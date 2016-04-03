@@ -3,10 +3,12 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+    "errors"
 	"fmt"
 	"log"
 	"net/http"
 	"strconv"
+    "strings"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -226,8 +228,28 @@ func newMasterStateCollector(url string, timeout time.Duration) *masterCollector
 	}
 }
 
+func (c *masterCollector) Leader() (string, error) {
+    if !strings.ContainsAny(c.url, ",") {
+		return c.url, nil
+	}
+	for _, testUrl := range strings.Split(c.url, ",") {
+		resp, err := c.Get(testUrl + "/state.json")
+		if err != nil {
+			log.Print(err)
+			continue
+		}
+		defer resp.Body.Close()
+		var s state
+		if err := json.NewDecoder(resp.Body).Decode(&s); err != nil {
+			log.Print(err)
+			continue
+		}
+		return "http://" + s.Leader[7:len(s.Leader)], nil
+	}
+	return "", errors.New("Unable to find leader for masterCollector")}
+
 func (c *masterCollector) Collect(ch chan<- prometheus.Metric) {
-	leaderUrl, err := findLeader(c.url)
+	leaderUrl, err := c.Leader()
 	if err != nil {
 		log.Print(err)
 		return

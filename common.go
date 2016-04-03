@@ -49,12 +49,12 @@ func newMetricCollector(url string, timeout time.Duration, metrics map[prometheu
 	}
 }
 
-func findLeader(url string) (string, error) {
-	if !strings.ContainsAny(url, ",") {
-		return url, nil
+func (c *metricCollector) Leader() (string, error) {
+	if !strings.ContainsAny(c.url, ",") {
+		return c.url, nil
 	}
-	for _, testUrl := range strings.Split(url, ",") {
-		resp, err := http.Get(testUrl + "/state.json")
+	for _, testUrl := range strings.Split(c.url, ",") {
+		resp, err := c.Get(testUrl + "/state.json")
 		if err != nil {
 			log.Print(err)
 			continue
@@ -65,15 +65,13 @@ func findLeader(url string) (string, error) {
 			log.Print(err)
 			continue
 		}
-		if s.Leader == "master@" + testUrl[7:len(testUrl)] {
-			return testUrl, nil
-		}
+		return "http://" + s.Leader[7:len(s.Leader)], nil
 	}
-	return "", errors.New("Unable to find leader")
+	return "", errors.New("Unable to find leader for metricCollector")
 }
 
 func (c *metricCollector) Collect(ch chan<- prometheus.Metric) {
-	leaderUrl, err := findLeader(c.url)
+	leaderUrl, err := c.Leader()
 	if err != nil {
 		log.Print(err)
 		errorCounter.Inc()
