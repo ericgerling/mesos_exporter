@@ -6,7 +6,7 @@ dependencies:
   override:
     - go get github.com/tools/godep
     - godep save
-    - go build -o mesos-exporter
+    - go build --ldflags '-extldflags "-static"' -o mesos-exporter
     - docker build -t ericgerling/mesos-exporter .
 
 deployment:
